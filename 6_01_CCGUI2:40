@@ -1,0 +1,256 @@
+#define CVUI_IMPLEMENTATION
+#include "cvui.h"
+
+#include "opencv2/core/core.hpp"
+#include "opencv2/highgui/highgui.hpp"
+#include "opencv2/imgproc/imgproc.hpp"
+#include <iomanip>
+#include <algorithm>
+#include "conio.h"
+#include "stdlib.h"
+#include <limits>
+#include <iostream>
+
+
+#define WINDOW_NAME "CVUI Test"
+#define WINDOW_NAME2 "Colour Capture Camera"
+using namespace cv;
+using namespace std;
+
+
+std::string rgb2hex(int r, int g, int b, bool with_head)
+{
+    std::stringstream ss;
+    if (with_head)
+        ss << "#";
+    ss << std::hex << (r << 16 | g << 8 | b);
+    return ss.str();
+}
+
+Mat printColours(const Mat& centers, const Mat& labels, const Mat& data, int siz = 64) {
+
+    Mat cent = centers.reshape(3, centers.rows);
+
+    // make  a horizontal bar of K color patches:
+    Mat draw(siz, siz * cent.rows, cent.type(), Scalar::all(0));
+
+
+    cout << endl << "BGR Dominance\n";
+    for (int i = 0; i < cent.rows; i++) {
+        // set the resp. ROI to hat value (just fill it):
+        draw(Rect(i * siz, 0, siz, siz)) = cent.at<Vec3f>(i, 0);
+
+        double numerator = static_cast<float>(countNonZero(labels == i));
+        double denominator = static_cast<float>(data.total());
+
+        double percentage = numerator / denominator;
+
+        int B = cent.at<Vec3f>(i, 0)[0];
+        int G = cent.at<Vec3f>(i, 0)[1];
+        int R = cent.at<Vec3f>(i, 0)[2];
+
+        cout << "Cluster " << i + 1 << ": " << cent.at<Vec3f>(i, 0) << " | Pixel Count: " << countNonZero(labels == i) << " | Percentage: " << setprecision(3) << percentage * 100.0 << "% | B: " << B << " | G:" << G << " | R:" << R << " | Hex: " << rgb2hex(R, G, B, true) << "\n";
+
+    }
+    draw.convertTo(draw, CV_8U);
+
+
+    imshow("Colour Palette", draw);
+    //imread("ColourPalette.jpg", draw); 
+
+
+    return draw;
+}
+
+bool cameraBool = false;
+bool fileBool = false;
+bool quantBool = false;
+bool aboutBool = false;
+
+
+
+
+
+int main() {
+    cvui::init(WINDOW_NAME);
+
+    // Create a frame
+    cv::Mat frame = cv::Mat(cv::Size(600, 380), CV_8UC3);
+    int pixelDimensions = 10;
+    int k = 15;
+
+
+
+
+    while (true) {
+        // clear the frame
+        frame = cv::Scalar(49, 52, 49);
+
+        // render a message in the frame at position (10, 15)
+        cvui::text(frame, 20, 20, "COLOUR CAPTURE", 1.5);
+
+
+
+        //std::cout << "x: " << cvui::mouse().x << " y: " << cvui::mouse().y << std::endl;
+
+        //work on location of buttons
+
+
+        cvui::checkbox(frame, 75, 360, "|", &cameraBool);
+        cvui::checkbox(frame, 225, 360, "[", &fileBool);
+        cvui::checkbox(frame, 375, 360, "]", &quantBool);
+        cvui::checkbox(frame, 525, 360, "/", &aboutBool);
+
+
+        if (cameraBool == true)
+        {
+
+
+            cvui::counter(frame, 70, 100, &pixelDimensions);
+            cvui::text(frame, 70, 80, "Pixel Dimension");
+            cvui::counter(frame, 270, 100, &k);
+            cvui::text(frame, 290, 80, "K Value");
+            cvui::text(frame, 2, 750, "Beta Testing");
+
+            if (pixelDimensions < 1)
+            {
+                pixelDimensions = 1;
+            }
+            if (k < 1)
+            {
+                k = 1;
+            }
+
+            if (cvui::button(frame, 160, 180, 200, 30, "COLOUR CAPTURE CAMERA"))
+            {
+
+                const int fps = 60;
+                Mat vidframe;
+                VideoCapture vid(0);
+
+                while (vid.read(vidframe))
+                {
+                    resize(vidframe, vidframe, Size(), 0.6, 0.6, INTER_LINEAR);
+
+                    cvui::imshow(WINDOW_NAME2, vidframe);
+                    //cvui::image(frame, 500, 500, vidframe);
+
+                    if (waitKey(1000 / fps) >= 0)
+                    {
+                        double e1 = getTickCount();
+                        vid >> vidframe;
+                        //imshow("image", vidframe);
+
+                        imwrite("test.jpg", vidframe);
+
+                        Mat src, pixelsrc, dst; //variables for images
+                        std::string image_path = samples::findFile("test.jpg");
+                        src = imread(image_path, IMREAD_COLOR);
+
+                        //make src smaller and then increase to original size to pixelize
+                        //int w = 12;
+                        //int h = 12;
+                        resize(src, pixelsrc, Size(pixelDimensions, pixelDimensions), INTER_LINEAR);
+                        resize(pixelsrc, dst, Size(src.size().width, src.size().height), 0, 0, INTER_NEAREST);
+                        resize(pixelsrc, pixelsrc, Size(src.size().width, src.size().height), 0, 0, INTER_NEAREST);
+
+                        //std::cout << "Resolution : " << src.size().width << "x" << src.size().height;
+
+
+                        Mat data;
+                        dst.convertTo(data, CV_32F);
+                        data = data.reshape(1, data.total());
+
+                        // do kmeans
+
+                        Mat labels, centers;
+                        //int k = 12
+
+                        kmeans(data, k, labels, TermCriteria(TermCriteria::MAX_ITER, 10, 1.0), 3, KMEANS_PP_CENTERS, centers);
+
+                        // reshape both to a single row of Vec3f pixels:
+                        centers = centers.reshape(3, centers.rows);
+                        data = data.reshape(3, data.rows);
+
+                        // replace pixel values with their center value:
+                        Vec3f* p = data.ptr<Vec3f>();
+                        for (size_t i = 0; i < data.rows; i++) {
+                            int center_id = labels.at<int>(i);
+                            p[i] = centers.at<Vec3f>(center_id);
+                        }
+
+                        // back to 2d, and uchar:
+                        dst = data.reshape(3, dst.rows);
+                        dst.convertTo(dst, CV_8U);
+
+                        //visualize data:
+                        imshow("Image after Pixelization", pixelsrc);
+                        imshow("Image after K-Means Clustering", dst);
+                        printColours(centers, labels, data);
+                        double e2 = getTickCount();
+                        double time = (e2 - e1) / getTickFrequency();
+                        std::cout << "\sRuntime: " << time << "\s";
+                        waitKey(0);
+                        destroyWindow("Image after Pixelization");
+                        destroyWindow("Image after K-Means Clustering");
+                        destroyWindow(WINDOW_NAME2);
+                        destroyWindow("Colour Palette");
+                        break;
+                    }
+
+
+                }
+                // Show window content
+                cvui::imshow(WINDOW_NAME, frame);
+
+
+
+                if (cv::waitKey(30) == '27') {
+                    break;
+                }
+
+
+            }
+        }
+
+
+        if (fileBool == true)
+        {
+
+            
+
+
+        }
+
+        if (quantBool == true)
+        {
+
+
+
+        }
+
+        if (aboutBool == true)
+        {
+
+
+
+        }
+
+
+
+        //cvui::button("Live Camera Feature");
+        //cvui::button("   Preset Images   ");
+        //cvui::button("Colour Quantization");
+        //cvui::button("       About       ");
+
+
+
+
+        cvui::imshow(WINDOW_NAME, frame);
+
+        if (cv::waitKey(20) == 27) {
+            break;
+        }
+    }
+    return 0;
+}
