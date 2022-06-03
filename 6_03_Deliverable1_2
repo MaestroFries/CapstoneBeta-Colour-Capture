@@ -8,6 +8,9 @@
 #include <algorithm>
 #include "conio.h"
 #include "stdlib.h"
+#include <Windows.h>
+#include <mmsystem.h>
+#pragma comment(lib, "Winmm.lib")
 #include <limits>
 #include <iostream>
 
@@ -68,6 +71,7 @@ bool cameraBool = false;
 bool fileBool = false;
 bool quantBool = false;
 bool aboutBool = false;
+bool pixelBool;
 
 
 
@@ -81,7 +85,15 @@ int main() {
     int k = 15;
     string imagePath;
 
+    std::string name;
+    
+    const wchar_t* path = L"C:/Users/Francis/source/repos/6_01_BasicMenu/6_01_BasicMenu/bob.wav";
 
+    PlaySound( path , NULL, SND_ASYNC);
+    
+ 
+    
+    
 
     while (true) {
         // clear the frame
@@ -97,15 +109,38 @@ int main() {
         //work on location of buttons
 
 
-        cvui::checkbox(frame, 40, 360, "Camera", &cameraBool);
-        cvui::checkbox(frame, 170, 360, "Preset Images", &fileBool);
-        cvui::checkbox(frame, 325, 360, "Quantization", &quantBool);
-        cvui::checkbox(frame, 460, 360, "About Us", &aboutBool);
+        if (cvui::checkbox(frame, 40, 360, "Camera", &cameraBool))
+        {
+            fileBool = false;
+            quantBool = false;
+            aboutBool = false;
+            
+        }
+        if (cvui::checkbox(frame, 170, 360, "Preset Images", &fileBool))
+        {
+            cameraBool = false;
+            quantBool = false;
+            aboutBool = false;
+        }
+
+        if (cvui::checkbox(frame, 325, 360, "Quantization", &quantBool))
+        {
+            cameraBool = false;
+            fileBool = false;
+            aboutBool = false;
+        }
+
+        if (cvui::checkbox(frame, 460, 360, "About Us", &aboutBool))
+        {
+            cameraBool = false;
+            fileBool = false;
+            quantBool = false;
+        }
 
 
         if (cameraBool == true)
         {
-
+            
 
             cvui::counter(frame, 70, 100, &pixelDimensions);
             cvui::text(frame, 65, 80, "Pixel Dimension");
@@ -113,6 +148,7 @@ int main() {
             cvui::text(frame, 90, 150, "K Value");
             cvui::text(frame, 2, 750, "Beta Testing");
 
+            cvui::checkbox(frame, 70, 220, "Show Pixelization", &pixelBool);
             if (pixelDimensions < 1)
             {
                 pixelDimensions = 1;
@@ -187,8 +223,11 @@ int main() {
                         dst.convertTo(dst, CV_8U);
 
                         //visualize data:
-                        imshow("Image after Pixelization", pixelsrc);
-                        imshow("Image after K-Means Clustering", dst);
+                        if (pixelBool == true)
+                        {
+                            imshow("Image after Pixelization", pixelsrc);
+                            imshow("Image after K-Means Clustering", dst);
+                        }
                         printColours(centers, labels, data);
                         double e2 = getTickCount();
                         double time = (e2 - e1) / getTickFrequency();
@@ -238,7 +277,7 @@ int main() {
             cvui::window(frame, 290, 70, 260, 250, "Instructions");
             cvui::text(frame, 295, 100, "Select a preset image, then");
             cvui::text(frame, 295, 120, "press Colour Capture to show palette.");
-
+            cvui::checkbox(frame, 70, 260, "Show Pixelization", &pixelBool);
 
             if (cvui::button(frame, 70, 100, "La nuit de starry."))
             {
@@ -313,13 +352,20 @@ int main() {
                 dst.convertTo(dst, CV_8U);
 
                 //visualize data:
-                imshow("Image after Pixelization", pixelsrc);
-                imshow("Image after K-Means Clustering", dst);
+                if (pixelBool == true)
+                {
+                    imshow("Image after Pixelization", pixelsrc);
+                    imshow("Image after K-Means Clustering", dst);
+                }
+                
+                
 
                 printColours(centers, labels, data);
                 double e2 = getTickCount();
                 double time = (e2 - e1) / getTickFrequency();
                 std::cout << "\sRuntime: " << time << "\s";
+
+
                 waitKey(0);
 
                 destroyWindow("Image after Pixelization");
@@ -345,6 +391,8 @@ int main() {
             cvui::window(frame, 290, 70, 260, 250, "Instructions");
             cvui::text(frame, 295, 100, "Select a preset image, then");
             cvui::text(frame, 295, 120, "press QUANTIZATION to see process.");
+            cvui::text(frame, 295, 150, "Double click to continue.");
+            cvui::text(frame, 295, 170, "Press escape to leave process.");
 
 
             if (cvui::button(frame, 70, 100, "La nuit de starry."))
@@ -373,7 +421,7 @@ int main() {
             }
             if (cvui::button(frame, 70, 300, "QUANTIZATION", 0.5) && !imagePath.empty())
             {
-                for (int k = 1; k < 11; k++)
+                for (int k = 1; k < 16; k++)
                 {
                     Mat src = imread(imagePath, IMREAD_COLOR);
                     resize(src, src, Size(), 0.6, 0.6, INTER_LINEAR);
@@ -414,7 +462,15 @@ int main() {
 
                     imshow("Image", src);
                     printColours(centers, labels, data);
-                    waitKey(0);
+                    if (cv::waitKey(0) == 27) {
+                        destroyWindow("Colour Palette");
+                        destroyWindow("Image");
+                        break;
+                    }
+                    else {
+                        waitKey(0);
+                    }
+                    
                     destroyWindow("Colour Palette");
                     destroyWindow("Image");
                 }
@@ -435,14 +491,6 @@ int main() {
             cvui::image(frame, 410, 140, stem);
 
         }
-
-
-
-        //cvui::button("Live Camera Feature");
-        //cvui::button("   Preset Images   ");
-        //cvui::button("Colour Quantization");
-        //cvui::button("       About       ");
-
 
 
 
