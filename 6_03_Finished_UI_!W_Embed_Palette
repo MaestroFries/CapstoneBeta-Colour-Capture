@@ -30,7 +30,7 @@ std::string rgb2hex(int r, int g, int b, bool with_head)
     return ss.str();
 }
 
-Mat printColours(const Mat& centers, const Mat& labels, const Mat& data, int siz = 64) {
+Mat printColours(const Mat& centers, const Mat& labels, const Mat& data, int siz = 84) {
 
     Mat cent = centers.reshape(3, centers.rows);
 
@@ -43,15 +43,26 @@ Mat printColours(const Mat& centers, const Mat& labels, const Mat& data, int siz
         // set the resp. ROI to hat value (just fill it):
         draw(Rect(i * siz, 0, siz, siz)) = cent.at<Vec3f>(i, 0);
 
+        
         double numerator = static_cast<float>(countNonZero(labels == i));
         double denominator = static_cast<float>(data.total());
 
         double percentage = numerator / denominator;
 
-        int B = cent.at<Vec3f>(i, 0)[0];
-        int G = cent.at<Vec3f>(i, 0)[1];
-        int R = cent.at<Vec3f>(i, 0)[2];
-
+        double B = cent.at<Vec3f>(i, 0)[0];
+        double G = cent.at<Vec3f>(i, 0)[1];
+        double R = cent.at<Vec3f>(i, 0)[2];
+        
+        if ((R * 0.299) + (G + 0.587) + (B * 0.0114) > 186.0)
+        {
+            cv::putText(draw, rgb2hex(R, G, B, true), cv::Point(i * siz, siz - 5), cv::FONT_HERSHEY_PLAIN, 1, cv::Scalar(0, 0, 0), 1.5, false);
+            
+        }
+        else
+        {
+            cv::putText(draw, rgb2hex(R, G, B, true), cv::Point(i * siz, siz - 5), cv::FONT_HERSHEY_PLAIN, 1, cv::Scalar(255, 255, 255), 1.5, false);
+        }
+        
         cout << "Cluster " << i + 1 << ": " << cent.at<Vec3f>(i, 0) << " | Pixel Count: " << countNonZero(labels == i) << " | Percentage: " << setprecision(3) << percentage * 100.0 << "% | B: " << B << " | G:" << G << " | R:" << R << " | Hex: " << rgb2hex(R, G, B, true) << "\n";
 
     }
@@ -86,14 +97,14 @@ int main() {
     string imagePath;
 
     std::string name;
-    
+
     const wchar_t* path = L"C:/Users/Francis/source/repos/6_01_BasicMenu/6_01_BasicMenu/bob.wav";
 
-    PlaySound( path , NULL, SND_ASYNC);
-    
- 
-    
-    
+    PlaySound(path, NULL, SND_ASYNC);
+
+
+
+
 
     while (true) {
         // clear the frame
@@ -114,7 +125,7 @@ int main() {
             fileBool = false;
             quantBool = false;
             aboutBool = false;
-            
+
         }
         if (cvui::checkbox(frame, 170, 360, "Preset Images", &fileBool))
         {
@@ -140,7 +151,7 @@ int main() {
 
         if (cameraBool == true)
         {
-            
+
 
             cvui::counter(frame, 70, 100, &pixelDimensions);
             cvui::text(frame, 65, 80, "Pixel Dimension");
@@ -243,7 +254,7 @@ int main() {
 
                 }
 
-                
+
 
                 // Show window content
                 cvui::imshow(WINDOW_NAME, frame);
@@ -267,14 +278,14 @@ int main() {
             cvui::text(frame, 295, 250, "Press space to capture and reset.");
 
 
-            
+
 
         }
 
 
         if (fileBool == true)
         {
-            
+
             cvui::window(frame, 290, 70, 260, 250, "Instructions");
             cvui::text(frame, 295, 100, "Select a preset image, then");
             cvui::text(frame, 295, 120, "press Colour Capture to show palette.");
@@ -307,8 +318,8 @@ int main() {
             if (cvui::button(frame, 70, 300, "COLOUR CAPTURE", 0.5) && !imagePath.empty())
             {
 
-                
-    
+
+
                 double e1 = getTickCount();
 
                 Mat src, pixelsrc, dst; //variables for image
@@ -358,8 +369,8 @@ int main() {
                     imshow("Image after Pixelization", pixelsrc);
                     imshow("Image after K-Means Clustering", dst);
                 }
-                
-                
+
+
 
                 printColours(centers, labels, data);
                 double e2 = getTickCount();
@@ -374,9 +385,9 @@ int main() {
                 destroyWindow("Original Image");
                 destroyWindow(WINDOW_NAME2);
                 destroyWindow("Colour Palette");
-                
+
             }
-            
+
             /*cvui::counter(frame, 70, 100, &pixelDimensions);
             cvui::text(frame, 65, 80, "Pixel Dimension");
             cvui::counter(frame, 70, 170, &k);
@@ -471,7 +482,7 @@ int main() {
                     else {
                         waitKey(0);
                     }
-                    
+
                     destroyWindow("Colour Palette");
                     destroyWindow("Image");
                 }
